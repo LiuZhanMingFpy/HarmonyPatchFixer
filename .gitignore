@@ -1,0 +1,10 @@
+bin/
+obj/
+*.dll
+!HarmonyPatchFixer.dll
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+.vs/
+.idea/
+.user
