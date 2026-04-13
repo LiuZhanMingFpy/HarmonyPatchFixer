@@ -14,19 +14,19 @@ A universal fixer mod for **Slay the Spire 2** that repairs Harmony mods broken 
 Some STS2 mods call `Harmony.PatchAll()` without passing an explicit assembly parameter:
 
 ```csharp
-_harmony.PatchAll(); // BUG: uses Assembly.GetCallingAssembly()
+_harmony.PatchAll();
 ```
 
-When the game invokes mod initializers via reflection, `Assembly.GetCallingAssembly()` returns the **game's assembly** instead of the mod's. This causes Harmony to scan the wrong assembly and never find the mod's `[HarmonyPatch]` classes.
+On certain environments, this call fails to apply patches — the mod loads without errors but its `[HarmonyPatch]` classes are never activated. The exact root cause is unclear; it may be related to Mono runtime assembly binding behavior.
 
-This bug is system-dependent — it may work on some machines but fail on others depending on how the runtime handles reflection calls.
+The fix is simple and verified: calling `PatchAll(asm)` with the mod's own assembly explicitly resolves the issue.
 
 ### How It Works
 
 After a 2-second delay (to let all mods initialize), HarmonyPatchFixer scans all loaded assemblies, identifies mod assemblies by their load path (`mods` folder), and calls `PatchAll(asm)` with the correct assembly for each:
 
 ```csharp
-fixHarmony.PatchAll(asm); // Correctly passes the mod's own assembly
+fixHarmony.PatchAll(asm);
 ```
 
 ### Installation
@@ -59,19 +59,19 @@ Requires:
 部分 STS2 Mod 在调用 `Harmony.PatchAll()` 时没有传入程序集参数：
 
 ```csharp
-_harmony.PatchAll(); // BUG：使用 Assembly.GetCallingAssembly()
+_harmony.PatchAll();
 ```
 
-当游戏通过反射调用 Mod 初始化方法时，`Assembly.GetCallingAssembly()` 返回的是**游戏自身的程序集**而非 Mod 的程序集。这会导致 Harmony 扫描错误的程序集，永远找不到 Mod 中的 `[HarmonyPatch]` 类。
+在某些环境下，此调用无法正确应用补丁——Mod 加载时不会报错，但其 `[HarmonyPatch]` 类从未被激活。具体根因尚不明确，可能与 Mono 运行时的程序集绑定行为有关。
 
-此 Bug 与系统环境相关——在某些机器上可能正常工作，但在另一些机器上会完全失效，具体取决于运行时如何处理反射调用。
+修复方法很简单且已验证：调用 `PatchAll(asm)` 并显式传入 Mod 自身的程序集即可解决问题。
 
 ### 工作原理
 
 在所有 Mod 初始化完成后（延迟 2 秒），HarmonyPatchFixer 扫描所有已加载的程序集，通过加载路径（`mods` 文件夹）识别 Mod 程序集，并为每个 Mod 调用传入正确程序集的 `PatchAll(asm)`：
 
 ```csharp
-fixHarmony.PatchAll(asm); // 正确传入 Mod 自身的程序集
+fixHarmony.PatchAll(asm);
 ```
 
 ### 安装方法
