@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Reflection;
 using HarmonyLib;
 using Godot;
@@ -20,6 +22,32 @@ public class Entry
     {
         GD.Print("[HarmonyPatchFixer] --- Starting scan ---");
 
+        // Build a set of assembly names that already have active Harmony patches
+        var alreadyPatched = new HashSet<string>();
+        try
+        {
+            foreach (var method in Harmony.GetAllPatchedMethods())
+            {
+                try
+                {
+                    var info = Harmony.GetPatchInfo(method);
+                    if (info == null) continue;
+                    CollectPatchAssemblies(info.Prefixes, alreadyPatched);
+                    CollectPatchAssemblies(info.Postfixes, alreadyPatched);
+                    CollectPatchAssemblies(info.Transpilers, alreadyPatched);
+                    CollectPatchAssemblies(info.Finalizers, alreadyPatched);
+                }
+                catch { }
+            }
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"[HarmonyPatchFixer] Error scanning existing patches: {e.Message}");
+        }
+
+        GD.Print($"[HarmonyPatchFixer] Assemblies with active patches: {string.Join(", ", alreadyPatched)}");
+
+        int skipped = 0;
         int fixedAssemblies = 0;
 
         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
@@ -33,10 +61,16 @@ public class Entry
             var loc = asm.Location ?? "";
             if (!loc.Contains("mods")) continue;
 
-            GD.Print($"[HarmonyPatchFixer] Repatching mod assembly: {name}");
+            if (alreadyPatched.Contains(name))
+            {
+                skipped++;
+                GD.Print($"[HarmonyPatchFixer] Skipping {name}: already has active patches");
+                continue;
+            }
 
             try
             {
+                GD.Print($"[HarmonyPatchFixer] Repatching mod assembly: {name}");
                 var fixHarmony = new Harmony("com.patchfixer." + name);
                 fixHarmony.PatchAll(asm);
                 fixedAssemblies++;
@@ -48,6 +82,25 @@ public class Entry
             }
         }
 
-        GD.Print($"[HarmonyPatchFixer] --- Done: repatched {fixedAssemblies} mod assemblies ---");
+        GD.Print($"[HarmonyPatchFixer] --- Done: repatched {fixedAssemblies}, skipped {skipped} ---");
+    }
+
+    private static void CollectPatchAssemblies(ReadOnlyCollection<Patch> patches, HashSet<string> result)
+    {
+        if (patches == null) return;
+        foreach (var p in patches)
+        {
+            try
+            {
+                var patchAsm = p.PatchMethod?.DeclaringType?.Assembly;
+                if (patchAsm != null)
+                {
+                    var asmName = patchAsm.GetName().Name;
+                    if (asmName != null)
+                        result.Add(asmName);
+                }
+            }
+            catch { }
+        }
     }
 }

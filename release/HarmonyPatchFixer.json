@@ -1,0 +1,10 @@
+{
+  "id": "HarmonyPatchFixer",
+  "name": "Harmony Patch Fixer",
+  "author": "BaiYuYoki",
+  "description": "Fixes Harmony mods that call PatchAll() without specifying their assembly, ensuring patches are correctly applied on all systems",
+  "version": "1.0.0",
+  "has_pck": false,
+  "has_dll": true,
+  "affects_gameplay": false
+}
